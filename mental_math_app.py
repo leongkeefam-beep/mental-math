@@ -1,108 +1,125 @@
 import random
 import streamlit as st
 
-st.set_page_config(page_title="Quickfire — Mental Math", page_icon="🧮", layout="centered")
+st.set_page_config(page_title="Math Buddy", page_icon="🧮", layout="centered")
 
 # ===========================================================================
-#  STYLING ONLY — this big CSS block is what makes the app look good.
-#  None of it touches your game logic; it just restyles Streamlit's defaults
-#  and gives us a few custom pieces (the equation card, the scoreboard, the
-#  feedback banner). Your Python is further down, unchanged.
+#  LOOK & FEEL — all the cute styling lives in this CSS block. It doesn't
+#  touch your game; it just paints Streamlit's buttons pink/blue, rounds
+#  everything off with a thick cartoon outline, and loads a chunky font.
 # ===========================================================================
 st.markdown("""
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=Space+Grotesk:wght@400;500;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap');
 
-  /* page background + hide Streamlit chrome */
-  .stApp{
-    background:radial-gradient(120% 90% at 50% -10%,#241d40 0%,#14111f 55%);
-  }
+  .stApp{ background:#eafaf1; }
   [data-testid="stHeader"]{display:none}
   #MainMenu, footer{visibility:hidden}
   .block-container, [data-testid="stMainBlockContainer"]{
-    max-width:460px; padding-top:2.2rem; padding-bottom:2rem;
+    max-width:430px; padding-top:1.6rem; padding-bottom:2rem;
   }
+  html, body, [class*="css"]{ font-family:'Fredoka',sans-serif; }
 
-  /* brand + score row */
-  .bar{display:flex;align-items:flex-end;justify-content:space-between;
-       margin-bottom:16px;padding:0 2px;font-family:'Space Grotesk',sans-serif;}
-  .brand{font-weight:700;font-size:15px;letter-spacing:.16em;
-         text-transform:uppercase;color:#8e88b0;}
-  .brand b{color:#b6f35c;}
-  .stat{text-align:right;line-height:1.05;}
-  .stat .label{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#8e88b0;}
-  .stat .val{font-family:'JetBrains Mono',monospace;font-weight:800;font-size:34px;
-             color:#ece9ff;font-variant-numeric:tabular-nums;}
-  .stat .val.up{color:#b6f35c;}
-  .stat .val.down{color:#fb7185;}
+  /* tighten spacing so the keypad feels like one unit */
+  [data-testid="stVerticalBlock"]{ gap:.55rem; }
+  [data-testid="stHorizontalBlock"]{ gap:.55rem; }
 
-  /* equation card */
-  .card{
-    background:linear-gradient(180deg,#1f1b34,#1a1530);
-    border:1px solid #322c50;border-radius:22px;
-    padding:40px 26px 34px;
-    box-shadow:0 30px 60px -30px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04);
+  /* ---- title + score pill ---- */
+  .title{ text-align:center; font-weight:700; font-size:30px; color:#3a7d5c;
+          letter-spacing:.01em; margin-bottom:10px; }
+  .scorepill{ display:flex; justify-content:center; margin-bottom:14px; }
+  .scorepill span{
+    background:#ffffff; border:3px solid #2a2a2a; border-radius:999px;
+    padding:6px 18px; font-weight:700; font-size:18px; color:#2a2a2a;
+    box-shadow:0 3px 0 #2a2a2a;
   }
-  .equation{font-family:'JetBrains Mono',monospace;font-weight:800;
-    font-size:clamp(48px,15vw,70px);text-align:center;color:#ece9ff;
-    font-variant-numeric:tabular-nums;letter-spacing:.02em;}
-  .equation .op{color:#b6f35c;margin:0 .12em;}
+  .scorepill span.up{ background:#d8f5c2; }
+  .scorepill span.down{ background:#ffd6dd; }
 
-  /* feedback banner */
-  .fb{margin-top:16px;text-align:center;font-family:'Space Grotesk',sans-serif;
-      font-weight:500;font-size:15px;}
-  .fb.good{color:#b6f35c;}
-  .fb.bad{color:#fb7185;}
-  .fb.warn{color:#f5c451;}
-
-  /* answer input */
-  .stTextInput input{
-    background:#100d1c !important;border:1.5px solid #322c50 !important;
-    border-radius:14px !important;color:#ece9ff !important;
-    font-family:'JetBrains Mono',monospace !important;font-weight:700 !important;
-    font-size:26px !important;text-align:center !important;
-    padding:14px !important;
+  /* ---- calculator body + screen ---- */
+  .calc{
+    background:#a9e8c8; border:4px solid #2a2a2a; border-radius:30px;
+    padding:22px; box-shadow:0 8px 0 #2a2a2a; margin-bottom:20px;
   }
-  .stTextInput input::placeholder{color:#4b456b !important;font-weight:500 !important;}
-  .stTextInput input:focus{
-    border-color:#b6f35c !important;
-    box-shadow:0 0 0 4px rgba(182,243,92,.30) !important;
+  .screen{
+    background:#cdeaa0; border:4px solid #2a2a2a; border-radius:20px;
+    padding:16px 14px 18px; text-align:center;
   }
+  .equation{ font-weight:700; font-size:46px; color:#2a2a2a; line-height:1.1; }
+  .equation .op{ color:#e86a8e; }
+  .typed{ font-weight:600; font-size:26px; color:#3a7d5c; margin-top:4px; min-height:32px; }
+  .typed .ph{ color:#8bbf9a; }
 
-  /* submit button (primary, lime) */
-  .stFormSubmitButton button{
-    background:#b6f35c !important;color:#16210a !important;border:none !important;
-    border-radius:13px !important;font-family:'Space Grotesk',sans-serif !important;
-    font-weight:700 !important;font-size:17px !important;padding:13px !important;
+  /* ---- keypad buttons (secondary = pink) ---- */
+  .stButton button, .stButton button[kind="secondary"],
+  .stButton button[data-testid="stBaseButton-secondary"]{
+    background:#fac6d3 !important; color:#2a2a2a !important;
+    border:3px solid #2a2a2a !important; border-radius:20px !important;
+    font-family:'Fredoka',sans-serif !important; font-weight:700 !important;
+    font-size:24px !important; min-height:56px !important;
+    box-shadow:0 4px 0 #2a2a2a !important; transition:transform .05s, box-shadow .05s;
   }
-  .stFormSubmitButton button:hover{background:#c9ff6b !important;}
+  .stButton button:hover{ background:#ffb6c8 !important; }
+  .stButton button:active{ transform:translateY(4px) !important; box-shadow:0 0 0 #2a2a2a !important; }
 
-  /* reset button (secondary, ghost) */
-  .stButton button{
-    background:transparent !important;color:#8e88b0 !important;
-    border:1px solid #322c50 !important;border-radius:12px !important;
-    font-family:'Space Grotesk',sans-serif !important;font-weight:600 !important;
-    font-size:13px !important;letter-spacing:.12em !important;text-transform:uppercase !important;
-    padding:11px !important;
+  /* ---- the = / enter key (primary = blue) ---- */
+  .stButton button[kind="primary"],
+  .stButton button[data-testid="stBaseButton-primary"]{
+    background:#a7d8ee !important; color:#2a2a2a !important;
+    border:3px solid #2a2a2a !important; border-radius:20px !important;
+    font-family:'Fredoka',sans-serif !important; font-weight:700 !important;
+    font-size:24px !important; min-height:58px !important;
+    box-shadow:0 4px 0 #2a2a2a !important;
   }
-  .stButton button:hover{color:#ece9ff !important;border-color:#473e6e !important;}
+  .stButton button[kind="primary"]:hover,
+  .stButton button[data-testid="stBaseButton-primary"]:hover{ background:#8ccdec !important; }
 
-  /* tighten the form container */
-  [data-testid="stForm"]{border:none !important;padding:14px 0 0 0 !important;}
+  .reset{ text-align:center; margin-top:8px; }
 </style>
 """, unsafe_allow_html=True)
 
 
+# ---- the three kawaii faces (drawn with SVG, no logic — just decoration) ----
+FACE_HAPPY = """
+<svg viewBox="0 0 150 70" width="120" style="margin-bottom:2px">
+  <ellipse cx="46" cy="30" rx="8" ry="11" fill="#2a2a2a"/>
+  <circle cx="43" cy="26" r="2.6" fill="#fff"/>
+  <ellipse cx="104" cy="30" rx="8" ry="11" fill="#2a2a2a"/>
+  <circle cx="101" cy="26" r="2.6" fill="#fff"/>
+  <path d="M62 40 Q75 54 88 40" fill="none" stroke="#2a2a2a" stroke-width="5" stroke-linecap="round"/>
+  <path d="M71 46 Q75 56 79 46 Z" fill="#e86a8e"/>
+</svg>"""
+
+FACE_GREAT = """
+<svg viewBox="0 0 150 70" width="120" style="margin-bottom:2px">
+  <path d="M36 32 Q46 20 56 32" fill="none" stroke="#2a2a2a" stroke-width="5" stroke-linecap="round"/>
+  <path d="M94 32 Q104 20 114 32" fill="none" stroke="#2a2a2a" stroke-width="5" stroke-linecap="round"/>
+  <path d="M58 38 Q75 62 92 38 Z" fill="#e86a8e" stroke="#2a2a2a" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M22 18 l3 6 6 3 -6 3 -3 6 -3 -6 -6 -3 6 -3 z" fill="#fff2a8" stroke="#2a2a2a" stroke-width="2"/>
+  <path d="M122 16 l2.5 5 5 2.5 -5 2.5 -2.5 5 -2.5 -5 -5 -2.5 5 -2.5 z" fill="#fff2a8" stroke="#2a2a2a" stroke-width="2"/>
+</svg>"""
+
+FACE_SAD = """
+<svg viewBox="0 0 150 70" width="120" style="margin-bottom:2px">
+  <ellipse cx="46" cy="32" rx="7" ry="9" fill="#2a2a2a"/>
+  <ellipse cx="104" cy="32" rx="7" ry="9" fill="#2a2a2a"/>
+  <path d="M34 20 Q46 16 56 22" fill="none" stroke="#2a2a2a" stroke-width="4" stroke-linecap="round"/>
+  <path d="M94 22 Q104 16 116 20" fill="none" stroke="#2a2a2a" stroke-width="4" stroke-linecap="round"/>
+  <path d="M62 52 Q75 40 88 52" fill="none" stroke="#2a2a2a" stroke-width="5" stroke-linecap="round"/>
+  <path d="M116 40 q5 9 0 13 q-5 -4 0 -13 z" fill="#7ec8e3" stroke="#2a2a2a" stroke-width="2"/>
+</svg>"""
+
+
 # ===========================================================================
-#  YOUR GAME — same rules as your original script.
-#  The while-loop became session_state because a web app re-runs top to
-#  bottom on each click instead of looping. The math is yours, untouched.
+#  YOUR GAME — the rules are exactly your original script.
+#  The terminal loop / input() / print() became session_state + buttons
+#  because a web page can't loop-and-wait, but the maths below is yours.
 # ===========================================================================
 if "score" not in st.session_state:
     st.session_state.score = 0
-    st.session_state.feedback = ""
-    st.session_state.fb_kind = ""      # good / bad / warn — just for colour
-    st.session_state.last_dir = ""     # up / down — colours the score
+    st.session_state.answer_str = ""     # what the player has tapped so far
+    st.session_state.fb_kind = "happy"   # which face to show
+    st.session_state.last_dir = ""       # colours the score pill
 
 
 def new_question():
@@ -127,65 +144,89 @@ if "num1" not in st.session_state:
     new_question()
 
 
-# ----------------------------- draw the page -----------------------------
-# scoreboard row (custom HTML so it looks the way we want)
-score_class = st.session_state.last_dir  # "up", "down", or ""
-st.markdown(f"""
-<div class="bar">
-  <div class="brand">Quick<b>fire</b></div>
-  <div class="stat">
-    <div class="label">Score</div>
-    <div class="val {score_class}">{st.session_state.score}</div>
-  </div>
-</div>
-""", unsafe_allow_html=True)
+# ---- keypad callbacks (these just build the typed-in answer string) ----
+def tap_digit(d):
+    st.session_state.answer_str += d
 
-# the equation card (× shown instead of x, but the logic still uses "x")
-op_display = "×" if st.session_state.c == "x" else st.session_state.c
-feedback_html = ""
-if st.session_state.feedback:
-    feedback_html = f'<div class="fb {st.session_state.fb_kind}">{st.session_state.feedback}</div>'
+def tap_sign():
+    s = st.session_state.answer_str
+    st.session_state.answer_str = s[1:] if s.startswith("-") else "-" + s
 
-st.markdown(f"""
-<div class="card">
-  <div class="equation">
-    <span>{st.session_state.num1}</span><span class="op">{op_display}</span><span>{st.session_state.num2}</span>
-  </div>
-  {feedback_html}
-</div>
-""", unsafe_allow_html=True)
+def tap_delete():
+    st.session_state.answer_str = st.session_state.answer_str[:-1]
 
-# the answer form — Enter or the button submits, box clears each time
-with st.form("answer_form", clear_on_submit=True):
-    userinput = st.text_input("Your answer", placeholder="type a number",
-                              label_visibility="collapsed")
-    submitted = st.form_submit_button("Submit", use_container_width=True)
-
-if submitted:
-    try:
-        guess = int(userinput)
-    except ValueError:
-        st.session_state.feedback = "Type a whole number."
-        st.session_state.fb_kind = "warn"
+def tap_enter():
+    s = st.session_state.answer_str
+    if s in ("", "-"):
+        return                                   # nothing typed yet
+    guess = int(s)
+    if guess == st.session_state.ans:            # <-- your scoring rules
+        st.session_state.score += 1
+        st.session_state.fb_kind = "great"
+        st.session_state.last_dir = "up"
     else:
-        if guess == st.session_state.ans:                 # your scoring rules
-            st.session_state.score += 1
-            st.session_state.feedback = "Correct!"
-            st.session_state.fb_kind = "good"
-            st.session_state.last_dir = "up"
-        else:
-            st.session_state.score -= 1
-            st.session_state.feedback = f"Wrong — the answer was {st.session_state.ans}"
-            st.session_state.fb_kind = "bad"
-            st.session_state.last_dir = "down"
-        new_question()
-    st.rerun()
+        st.session_state.score -= 1
+        st.session_state.fb_kind = "sad"
+        st.session_state.last_dir = "down"
+    st.session_state.answer_str = ""
+    new_question()
 
-# reset (your original "exit")
-if st.button("End game / reset score", use_container_width=True):
+def reset_game():
     st.session_state.score = 0
-    st.session_state.feedback = ""
-    st.session_state.fb_kind = ""
+    st.session_state.answer_str = ""
+    st.session_state.fb_kind = "happy"
     st.session_state.last_dir = ""
     new_question()
-    st.rerun()
+
+
+# ------------------------------ draw the page ------------------------------
+st.markdown('<div class="title">🧮 Math Buddy</div>', unsafe_allow_html=True)
+
+st.markdown(
+    f'<div class="scorepill"><span class="{st.session_state.last_dir}">'
+    f'⭐ Score&nbsp; {st.session_state.score}</span></div>',
+    unsafe_allow_html=True,
+)
+
+face = {"happy": FACE_HAPPY, "great": FACE_GREAT, "sad": FACE_SAD}[st.session_state.fb_kind]
+op_display = "×" if st.session_state.c == "x" else st.session_state.c
+typed = st.session_state.answer_str
+typed_html = typed if typed else '<span class="ph">tap a number…</span>'
+
+st.markdown(f"""
+<div class="calc">
+  <div class="screen">
+    {face}
+    <div class="equation">
+      {st.session_state.num1}<span class="op"> {op_display} </span>{st.session_state.num2}
+    </div>
+    <div class="typed">{typed_html}</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+# keypad: numbers in pink, = in blue, just like your picture
+r1 = st.columns(3)
+r1[0].button("7", use_container_width=True, on_click=tap_digit, args=("7",))
+r1[1].button("8", use_container_width=True, on_click=tap_digit, args=("8",))
+r1[2].button("9", use_container_width=True, on_click=tap_digit, args=("9",))
+
+r2 = st.columns(3)
+r2[0].button("4", use_container_width=True, on_click=tap_digit, args=("4",))
+r2[1].button("5", use_container_width=True, on_click=tap_digit, args=("5",))
+r2[2].button("6", use_container_width=True, on_click=tap_digit, args=("6",))
+
+r3 = st.columns(3)
+r3[0].button("1", use_container_width=True, on_click=tap_digit, args=("1",))
+r3[1].button("2", use_container_width=True, on_click=tap_digit, args=("2",))
+r3[2].button("3", use_container_width=True, on_click=tap_digit, args=("3",))
+
+r4 = st.columns(3)
+r4[0].button("±", use_container_width=True, on_click=tap_sign)
+r4[1].button("0", use_container_width=True, on_click=tap_digit, args=("0",))
+r4[2].button("⌫", use_container_width=True, on_click=tap_delete)
+
+st.button("=", type="primary", use_container_width=True, on_click=tap_enter)
+
+st.markdown('<div class="reset"></div>', unsafe_allow_html=True)
+st.button("🔄 New game", use_container_width=True, on_click=reset_game)
