@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quickfire — Mental Math</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#14111f;
+    --bg2:#1a1530;
+    --surface:#1f1b34;
+    --line:#322c50;
+    --text:#ece9ff;
+    --muted:#8e88b0;
+    --accent:#b6f35c;
+    --accent-dim:#7fae3a;
+    --wrong:#fb7185;
+    --glow:rgba(182,243,92,.35);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:"Space Grotesk",system-ui,sans-serif;
+    background:radial-gradient(120% 90% at 50% -10%,#241d40 0%,var(--bg) 55%);
+    color:var(--text);
+    min-height:100dvh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    overflow-x:hidden;
+  }
+  .stage{width:100%;max-width:440px}
+
+  /* top bar */
+  .bar{
+    display:flex;align-items:flex-end;justify-content:space-between;
+    margin-bottom:18px;padding:0 4px;
+  }
+  .brand{
+    font-weight:700;font-size:15px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--muted);
+  }
+  .brand b{color:var(--accent)}
+  .stat{text-align:right;line-height:1}
+  .stat .label{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+  .stat .val{
+    font-family:"JetBrains Mono",monospace;font-weight:800;font-size:34px;
+    font-variant-numeric:tabular-nums;
+    transition:transform .18s ease, color .18s ease;
+  }
+  .stat .val.bump{transform:scale(1.25)}
+  .stat .val.up{color:var(--accent)}
+  .stat .val.down{color:var(--wrong)}
+
+  /* equation card */
+  .card{
+    background:linear-gradient(180deg,var(--surface),var(--bg2));
+    border:1px solid var(--line);
+    border-radius:22px;
+    padding:38px 26px 30px;
+    box-shadow:0 30px 60px -30px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04);
+    position:relative;
+  }
+  .card.flash{animation:flash .4s ease}
+  .card.shake{animation:shake .4s ease}
+  @keyframes flash{0%{border-color:var(--accent);box-shadow:0 0 0 4px var(--glow),0 30px 60px -30px rgba(0,0,0,.8)}100%{}}
+  @keyframes shake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(4px)}30%,50%,70%{transform:translateX(-7px)}40%,60%{transform:translateX(7px)}}
+
+  .equation{
+    font-family:"JetBrains Mono",monospace;font-weight:800;
+    font-size:clamp(48px,15vw,72px);
+    text-align:center;letter-spacing:.02em;
+    font-variant-numeric:tabular-nums;
+    display:flex;align-items:center;justify-content:center;gap:.28em;
+    user-select:none;
+  }
+  .equation .op{color:var(--accent)}
+  .equation .q{color:var(--muted);font-weight:500}
+
+  .answer{
+    margin-top:26px;
+    width:100%;
+    background:#100d1c;
+    border:1.5px solid var(--line);
+    border-radius:14px;
+    color:var(--text);
+    font-family:"JetBrains Mono",monospace;font-weight:700;
+    font-size:30px;text-align:center;
+    padding:16px 14px;
+    outline:none;
+    transition:border-color .15s, box-shadow .15s;
+    -moz-appearance:textfield;
+  }
+  .answer::-webkit-outer-spin-button,.answer::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .answer::placeholder{color:#4b456b;font-weight:500}
+  .answer:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--glow)}
+
+  .feedback{
+    height:20px;margin-top:14px;text-align:center;
+    font-size:14px;font-weight:500;letter-spacing:.02em;
+    opacity:0;transition:opacity .15s;
+  }
+  .feedback.show{opacity:1}
+  .feedback.good{color:var(--accent)}
+  .feedback.bad{color:var(--wrong)}
+
+  /* keypad */
+  .keypad{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:10px;
+    margin-top:18px;
+  }
+  .key{
+    font-family:"JetBrains Mono",monospace;font-weight:700;font-size:22px;
+    background:var(--surface);color:var(--text);
+    border:1px solid var(--line);border-radius:13px;
+    padding:16px 0;cursor:pointer;
+    transition:transform .08s, background .12s, border-color .12s;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .key:hover{background:#2a2444;border-color:#473e6e}
+  .key:active{transform:translateY(2px) scale(.97)}
+  .key.enter{background:var(--accent);color:#16210a;border-color:var(--accent);grid-column:span 1}
+  .key.enter:hover{background:#c9ff6b}
+  .key.del{color:var(--wrong)}
+
+  .exit{
+    margin-top:16px;width:100%;
+    background:transparent;color:var(--muted);
+    border:1px solid var(--line);border-radius:12px;
+    padding:13px;font-family:inherit;font-size:13px;font-weight:600;
+    letter-spacing:.14em;text-transform:uppercase;cursor:pointer;
+    transition:color .12s,border-color .12s;
+  }
+  .exit:hover{color:var(--text);border-color:#473e6e}
+
+  /* end screen */
+  .over{
+    position:fixed;inset:0;background:rgba(10,8,18,.86);
+    backdrop-filter:blur(8px);
+    display:none;align-items:center;justify-content:center;padding:24px;z-index:5;
+  }
+  .over.show{display:flex}
+  .over-card{
+    background:linear-gradient(180deg,var(--surface),var(--bg2));
+    border:1px solid var(--line);border-radius:22px;
+    padding:40px 32px;text-align:center;max-width:360px;width:100%;
+    box-shadow:0 40px 80px -30px #000;
+  }
+  .over-card .label{font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+  .over-card .final{
+    font-family:"JetBrains Mono",monospace;font-weight:800;font-size:72px;
+    margin:6px 0 4px;color:var(--accent);font-variant-numeric:tabular-nums;
+  }
+  .over-card .sub{color:var(--muted);font-size:14px;margin-bottom:28px}
+  .over-card .again{
+    width:100%;background:var(--accent);color:#16210a;border:none;border-radius:13px;
+    padding:15px;font-family:inherit;font-weight:700;font-size:16px;cursor:pointer;
+    letter-spacing:.02em;transition:background .12s;
+  }
+  .over-card .again:hover{background:#c9ff6b}
+
+  @media (max-width:380px){
+    .card{padding:30px 18px 24px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="bar">
+      <div class="brand">Quick<b>fire</b></div>
+      <div class="stat">
+        <div class="label">Score</div>
+        <div class="val" id="score">0</div>
+      </div>
+    </div>
+
+    <div class="card" id="card">
+      <div class="equation" id="equation">
+        <span class="q">—</span>
+      </div>
+      <input class="answer" id="answer" type="number" inputmode="numeric"
+             placeholder="answer" autocomplete="off" autofocus>
+      <div class="feedback" id="feedback"></div>
+
+      <div class="keypad" id="keypad">
+        <button class="key" data-k="1">1</button>
+        <button class="key" data-k="2">2</button>
+        <button class="key" data-k="3">3</button>
+        <button class="key" data-k="4">4</button>
+        <button class="key" data-k="5">5</button>
+        <button class="key" data-k="6">6</button>
+        <button class="key" data-k="7">7</button>
+        <button class="key" data-k="8">8</button>
+        <button class="key" data-k="9">9</button>
+        <button class="key del" data-k="del">⌫</button>
+        <button class="key" data-k="0">0</button>
+        <button class="key enter" data-k="enter">↵</button>
+      </div>
+
+      <button class="exit" id="exit">End game</button>
+    </div>
+  </div>
+
+  <div class="over" id="over">
+    <div class="over-card">
+      <div class="label">Final score</div>
+      <div class="final" id="final">0</div>
+      <div class="sub" id="finalSub">Nice run.</div>
+      <button class="again" id="again">Play again</button>
+    </div>
+  </div>
+
+<script>
+  // ---- game state (same rules as the original script) ----
+  let score = 0;
+  let answer = 0;
+
+  const $ = id => document.getElementById(id);
+  const eqEl = $('equation'), inputEl = $('answer'), scoreEl = $('score'),
+        fbEl = $('feedback'), cardEl = $('card');
+
+  function newQuestion(){
+    const num1 = 1 + Math.floor(Math.random()*20);   // 1–20
+    const num2 = 1 + Math.floor(Math.random()*9);    // 1–9
+    const ops = ['+','-','x'];
+    const c = ops[Math.floor(Math.random()*3)];
+    if (c === '-') answer = num1 - num2;
+    else if (c === 'x') answer = num1 * num2;
+    else answer = num1 + num2;
+
+    const shown = c === 'x' ? '×' : c;
+    eqEl.innerHTML = `<span>${num1}</span><span class="op">${shown}</span><span>${num2}</span>`;
+    inputEl.value = '';
+    inputEl.focus();
+  }
+
+  function bumpScore(up){
+    scoreEl.textContent = score;
+    scoreEl.classList.remove('up','down','bump');
+    void scoreEl.offsetWidth;            // restart animation
+    scoreEl.classList.add('bump', up ? 'up' : 'down');
+    setTimeout(()=>scoreEl.classList.remove('bump'), 180);
+    setTimeout(()=>scoreEl.classList.remove('up','down'), 400);
+  }
+
+  function showFeedback(text, good){
+    fbEl.textContent = text;
+    fbEl.className = 'feedback show ' + (good ? 'good' : 'bad');
+    setTimeout(()=>fbEl.classList.remove('show'), 900);
+  }
+
+  function submit(){
+    const raw = inputEl.value.trim();
+    if (raw === '' || isNaN(Number(raw))) { inputEl.focus(); return; }
+    if (Number(raw) === answer){
+      score++;
+      bumpScore(true);
+      showFeedback('Correct!', true);
+      cardEl.classList.remove('flash'); void cardEl.offsetWidth; cardEl.classList.add('flash');
+    } else {
+      score--;
+      bumpScore(false);
+      showFeedback('Wrong — answer was ' + answer, false);
+      cardEl.classList.remove('shake'); void cardEl.offsetWidth; cardEl.classList.add('shake');
+    }
+    newQuestion();
+  }
+
+  function endGame(){
+    $('final').textContent = score;
+    $('finalSub').textContent =
+      score > 0 ? 'Sharp work.' : score === 0 ? 'Back to even.' : 'Shake it off — go again.';
+    $('over').classList.add('show');
+  }
+
+  function restart(){
+    score = 0;
+    scoreEl.textContent = '0';
+    $('over').classList.remove('show');
+    newQuestion();
+  }
+
+  // ---- input wiring ----
+  inputEl.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+
+  $('keypad').addEventListener('click', e => {
+    const btn = e.target.closest('.key'); if (!btn) return;
+    const k = btn.dataset.k;
+    if (k === 'enter') submit();
+    else if (k === 'del') inputEl.value = inputEl.value.slice(0, -1);
+    else inputEl.value += k;
+    inputEl.focus();
+  });
+
+  $('exit').addEventListener('click', endGame);
+  $('again').addEventListener('click', restart);
+
+  newQuestion();
+</script>
+</body>
+</html>
